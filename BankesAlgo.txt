@@ -83,3 +83,23 @@ void main() {
         printf(Unsafe state Deadlock detected!n);
     }
 }
+
+--------------------------------------------------
+Enter the number of processes: 5
+Enter the number of resources: 3
+
+Enter the available resources: 3 3 2
+
+Enter the maximum demand matrix:
+P0: 7 5 3
+P1: 3 2 2
+P2: 9 0 2
+P3: 2 2 2
+P4: 4 3 3
+
+Enter the allocation matrix:
+P0: 0 1 0
+P1: 2 0 0
+P2: 3 0 2
+P3: 2 1 1
+P4: 0 0 2
