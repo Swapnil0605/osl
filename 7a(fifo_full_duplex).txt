@@ -1,0 +1,103 @@
+
+// process_a.c
+#include <stdio.h>
+#include <fcntl.h>      // for open()
+#include <sys/stat.h>   // for mkfifo()
+#include <unistd.h>     // for read(), write(), close(), unlink()
+
+int main() {
+    int fd, fd1;
+    char *myfifo = "myfifo";    // First pipe (A → B)
+    char *myfifo1 = "myfifo1";  // Second pipe (B → A)
+    char buf[1024];
+
+    // Step 1: Create two named pipes (FIFOs)
+    mkfifo(myfifo, 0666);
+    mkfifo(myfifo1, 0666);
+
+    // Step 2: Write input sentence to myfifo
+    fd = open(myfifo, O_WRONLY);
+    printf("Enter a sentence: ");
+    fgets(buf, sizeof(buf), stdin);   // get input sentence
+    write(fd, buf, sizeof(buf));      // send to Process B
+    close(fd);
+
+    // Step 3: Read result from myfifo1
+    fd1 = open(myfifo1, O_RDONLY);
+    read(fd1, buf, sizeof(buf));
+    printf("\n--- Process 1 received the following analysis ---\n");
+    printf("%s\n", buf);
+    close(fd1);
+
+    // Step 4: Remove FIFOs after use (cleanup)
+    unlink(myfifo);
+    unlink(myfifo1);
+
+    return 0;
+}
+
+
+
+//-------------------------------------
+
+
+// process_b.c
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <string.h>
+
+int main() {
+    int fd, fd1;
+    char *myfifo = "myfifo";    // First pipe (A → B)
+    char *myfifo1 = "myfifo1";  // Second pipe (B → A)
+    char buf[1024], ch[400];
+    int words = 0, characters = 0, lines = 1;
+    FILE *fp;
+
+    // Step 1: Create FIFO for sending result back
+    mkfifo(myfifo1, 0666);
+
+    // Step 2: Read sentence from Process A
+    fd = open(myfifo, O_RDONLY);
+    read(fd, buf, sizeof(buf));
+    printf("\nMessage received from Process 1:\n%s\n", buf);
+    close(fd);
+
+    // Step 3: Count characters, words, and lines
+    for (int i = 0; buf[i] != '\0'; i++) {
+        if (buf[i] == ' ' || buf[i] == '\t' || buf[i] == '\n')
+            words++;
+        if (buf[i] == '\n')
+            lines++;
+        characters++;
+    }
+    if (characters > 0)
+        words++;  // For last word
+
+    printf("\nTotal Words     : %d", words);
+    printf("\nTotal Lines     : %d", lines);
+    printf("\nTotal Characters: %d\n", characters);
+
+    // Step 4: Write results to a text file
+    fp = fopen("result.txt", "w");
+    fprintf(fp, "Total Words     : %d\n", words);
+    fprintf(fp, "Total Lines     : %d\n", lines);
+    fprintf(fp, "Total Characters: %d\n", characters);
+    fclose(fp);
+
+    // Step 5: Read file and send to Process A
+    fp = fopen("result.txt", "r");
+    fread(ch, sizeof(char), sizeof(ch), fp);
+    fclose(fp);
+
+    fd1 = open(myfifo1, O_WRONLY);
+    write(fd1, ch, strlen(ch));
+    close(fd1);
+
+    // Remove the first pipe after use
+    unlink(myfifo);
+
+    return 0;
+}
